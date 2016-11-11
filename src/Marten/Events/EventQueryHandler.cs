@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Marten.Linq;
@@ -35,26 +36,27 @@ namespace Marten.Events
 
         public void ConfigureCommand(NpgsqlCommand command)
         {
-            var sql = _selector.ToSelectClause(null);
+            var selectClause = _selector.ToSelectClause(null);
+            var sqlStringBuilder = new StringBuilder(selectClause);
 
             var param = command.AddParameter(_streamId);
-            sql += $" where stream_id = :{param.ParameterName}";
+            sqlStringBuilder.Append($" where stream_id = :{param.ParameterName}");
 
             if (_version > 0)
             {
                 var versionParam = command.AddParameter(_version);
-                sql += " and version <= :" + versionParam.ParameterName;
+                sqlStringBuilder.Append($" and version <= :{versionParam.ParameterName}");
             }
 
             if (_timestamp.HasValue)
             {
                 var timestampParam = command.AddParameter(_timestamp.Value);
-                sql += " and timestamp <= :" + timestampParam.ParameterName;
+                sqlStringBuilder.Append($" and timestamp <= :{timestampParam.ParameterName}");
             }
 
-            sql += " order by version";
+            sqlStringBuilder.Append(" order by version");
 
-            command.AppendQuery(sql);
+            command.AppendQuery(sqlStringBuilder.ToString());
         }
 
         public IList<IEvent> Handle(DbDataReader reader, IIdentityMap map, QueryStatistics stats)
